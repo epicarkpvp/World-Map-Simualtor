@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <title>daddy1337 world code</title>
+    <style>
+        body { margin:0; font-family: 'Segoe UI', sans-serif; background:#000; color:white; overflow: hidden; }
+        
+
+        #map { height: 100vh; width: 100vw; background: #000; }
+        #map::after {
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: repeating-linear-gradient(rgba(0,0,0,0) 0px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0) 4px);
+            pointer-events: none; z-index: 400; opacity: 0.5;
+        }
+
+        #gui {
+            position: absolute; top: 20px; right: 20px; width: 280px;
+            background: rgba(10, 15, 20, 0.85); border: 1px solid #334;
+            border-radius: 12px; z-index: 1000; padding: 20px;
+            backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #gui.hidden { transform: translateX(350px); }
+
+        #toggle-gui {
+            position: absolute; left: -40px; top: 15px; width: 40px; height: 40px;
+            background: rgba(10, 15, 20, 0.9); border: 1px solid #334; border-right: none; color: #ffcc00; 
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            border-radius: 8px 0 0 8px; font-weight: bold; font-size: 18px;
+        }
+
+        .stat-card { 
+            border-left: 5px solid #666; padding: 8px 15px; margin-bottom: 12px; 
+            background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%); 
+            border-radius: 0 6px 6px 0;
+        }
+        .val { 
+            font-size: 26px; font-weight: 900; font-family: 'Arial Black', Impact, sans-serif; 
+            display: block; letter-spacing: 1px;
+        }
+        .val.boost { animation: flashText 0.6s ease; } 
+        @keyframes flashText { 0% { color: #fff; text-shadow: 0 0 20px #fff; transform: scale(1.05); } 100% { transform: scale(1); } }
+        
+        button { 
+            width: 100%; background: #1a1a24; color: white; border: 1px solid #445; 
+            padding: 14px; margin-top: 10px; cursor: pointer; border-radius: 6px; font-size: 13px;
+            text-transform: uppercase; font-weight: 800; letter-spacing: 1px; transition: 0.2s;
+        }
+        button:hover:not(:disabled) { background: #2a2a3a; box-shadow: 0 0 15px rgba(255,255,255,0.1); }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+        button.active { border-color: #ff3333; color: #ff3333; box-shadow: 0 0 15px rgba(255,51,51,0.3); animation: pulseBtn 1.5s infinite; }
+        @keyframes pulseBtn { 0% { box-shadow: 0 0 5px rgba(255,51,51,0.3); } 50% { box-shadow: 0 0 20px rgba(255,51,51,0.6); } 100% { box-shadow: 0 0 5px rgba(255,51,51,0.3); } }
+        
+        button.primary { background: #1a4a1a; border-color: #2d8a2d; color: #8f8; }
+        button.primary:hover:not(:disabled) { background: #256025; box-shadow: 0 0 15px rgba(45,138,45,0.5); }
+
+        select, input[type="number"] { 
+            width: 100%; background: #0d0d14; color: #fff; border: 1px solid #445; 
+            padding: 12px; margin: 5px 0 15px 0; border-radius: 6px; box-sizing: border-box; font-weight: bold;
+        }
+        select:focus, input:focus { outline: none; border-color: #ffcc00; box-shadow: 0 0 8px rgba(255,204,0,0.3); }
+
+        .settings-group { background: rgba(0,0,0,0.5); border: 1px solid #223; padding: 12px; border-radius: 6px; margin-bottom: 10px; }
+        .settings-group label { display: flex; align-items: center; font-size: 12px; cursor: pointer; color: #bbb; font-weight: bold; }
+        .settings-group input[type="checkbox"] { margin-right: 10px; width: 16px; height: 16px; accent-color: #ffcc00; }
+
+        #eventLog {
+            font-size: 11px; color: #aaa; margin-top: 15px; min-height: 50px; max-height: 120px; overflow-y: hidden;
+            background: #050508; padding: 10px; border-radius: 6px; border: 1px solid #223;
+            display: flex; flex-direction: column-reverse; box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+        }
+        .log-entry { margin-bottom: 5px; animation: slideIn 0.3s ease-out forwards; opacity: 0; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        .curved-text-container {
+            width: 300px; height: 300px;
+            position: relative; left: -150px; top: -150px;
+            pointer-events: none;
+        }
+        .curved-text-container svg { width: 100%; height: 100%; overflow: visible; }
+        .svg-text {
+            font-family: 'Arial Black', Impact, sans-serif;
+            font-size: 34px; font-weight: 900; fill: #ffffff;
+            paint-order: stroke fill; stroke-width: 6px; stroke-linejoin: round;
+            filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.8));
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="gui">
+    <div id="toggle-gui" onclick="document.getElementById('gui').classList.toggle('hidden')">☰</div>
+    
+    <div class="stat-card" id="atkCard">
+        <div id="aTitle" style="font-size:11px; color:#aaa; font-weight:bold;">ANFALLARE</div>
+        <span class="val" id="aCount">0</span>
+    </div>
+    <div class="stat-card" id="defCard">
+        <div id="dTitle" style="font-size:11px; color:#aaa; font-weight:bold;">FÖRSVARARE</div>
+        <span class="val" id="dCount">0</span>
+    </div>
+
+    <div id="log" style="font-size:13px; color:#ffcc00; margin-bottom:15px; font-weight: bold; text-align: center; text-transform: uppercase;">1. Välj attackerande land</div>
+
+    <select id="enemySelect" onchange="updateUI()"><option disabled selected>Välj mål för invasion...</option></select>
+    
+    <div style="font-size:11px; color:#aaa; margin-top:5px; font-weight:bold;">TRUPPER (ANFALLARE)</div>
+    <input type="number" id="soldiers" value="1000000">
+
+    <div class="settings-group">
+        <label><input type="checkbox" id="longWar"> Realistic war (war lasts longer)</label>
+    </div>
+
+    <button id="setupBtn" onclick="startSetup()" disabled>📍 Place front line</button>
+    <button id="warBtn" onclick="launchInvasion()" disabled class="primary">⚔️ Start Invasion</button>
+
+    <div id="eventLog"></div>
+</div>
+
+<script>
+
+const flagColors = {
+    "Sweden": "#005293", "Finland": "#ffffff", "Norway": "#ba3d3d", "Denmark": "#c64c4c",
+    "Germany": "#555555", "France": "#002395", "Russia": "#cc2222", "Ukraine": "#ffd700",
+    "Poland": "#dc143c", "United Kingdom": "#012169", "United States of America": "#3c3b6e"
+};
+
+
+var map = L.map('map', {zoomControl: false, attributionControl: false}).setView([58, 20], 4);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}').addTo(map);
+
+
+L.rectangle([[-90, -180], [90, 180]], {color: "#000", weight: 0, fillColor: "#001020", fillOpacity: 0.4}).addTo(map);
+
+let countriesLayer, countries = {}, activeWar = null, selectedAtk = null, step = 0;
+let points = { s: null, e: null }, pMarkers = [];
+let occupiedLayer, remainingLayer, frontLineLayer;
+let combinedTextMarker; // Marker som håller båda böjda texterna
+
+fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json")
+.then(res => res.json()).then(data => {
+    countriesLayer = L.geoJSON(data, {
+        style: (f) => ({ color: "#334", weight: 1.5, fillColor: flagColors[f.properties.name] || "#222", fillOpacity: 0.25 }),
+        onEachFeature: function(feature, layer) {
+            let n = feature.properties.name;
+            countries[n] = { layer: layer, feature: feature, name: n, color: flagColors[n] || "#888" };
+            
+            layer.on('mouseover', () => { if(!activeWar && step===0 && n!==selectedAtk) layer.setStyle({fillOpacity: 0.5}); });
+            layer.on('mouseout', () => { if(!activeWar && step===0 && n!==selectedAtk) layer.setStyle({fillOpacity: 0.25}); });
+            
+            layer.on('click', () => {
+                if(activeWar || step > 0) return;
+                if(selectedAtk) countries[selectedAtk].layer.setStyle({fillOpacity: 0.25, color: "#334", weight: 1.5});
+                selectedAtk = n;
+                layer.setStyle({fillOpacity: 0.7, color: "#fff", weight: 3});
+                updateList(); updateUI();
+                document.getElementById("setupBtn").disabled = false;
+                document.getElementById("log").innerText = "2. Choose defender in the list";
+            });
+        }
+    }).addTo(map);
+});
+
+function updateList() {
+    let s = document.getElementById("enemySelect");
+    s.innerHTML = "<option disabled selected>Pick target country</option>";
+    Object.keys(countries).sort().forEach(c => { if(c !== selectedAtk) { let o = document.createElement("option"); o.value = o.text = c; s.appendChild(o); } });
+}
+
+function updateUI() {
+    let d = document.getElementById("enemySelect").value;
+    document.getElementById("aTitle").innerText = selectedAtk ? selectedAtk.toUpperCase() : "OFFENSIVE";
+    document.getElementById("dTitle").innerText = (d && d !== "Välj mål för invasion...") ? d.toUpperCase() : "DEFFENSIVE";
+    if(selectedAtk) document.getElementById("atkCard").style.borderLeftColor = countries[selectedAtk].color;
+    if(countries[d]) {
+        document.getElementById("defCard").style.borderLeftColor = countries[d].color;
+        document.getElementById("log").innerText = "3. Click 'Place Front Line'";
+    }
+}
+
+function startSetup() {
+    if(!document.getElementById("enemySelect").value || document.getElementById("enemySelect").value === "Välj mål för invasion...") {
+        alert("Choose a target country first!"); return;
+    }
+    step = 1;
+    pMarkers.forEach(m => map.removeLayer(m)); pMarkers = [];
+    document.getElementById("setupBtn").classList.add("active");
+    document.getElementById("log").innerText = "Click on the map where the invasion STARTS";
+    document.getElementById("setupBtn").disabled = true;
+    document.getElementById("enemySelect").disabled = true;
+}
+
+map.on('click', (e) => {
+    if(step === 1) {
+        points.s = e.latlng;
+        pMarkers.push(L.circleMarker(e.latlng, {color:'#0f0', radius:8, fillOpacity:1, weight:3}).addTo(map));
+        step = 2; document.getElementById("log").innerText = "Click where the front line should END (depth)";
+    } else if(step === 2) {
+        points.e = e.latlng;
+        pMarkers.push(L.circleMarker(e.latlng, {color:'#f00', radius:8, fillOpacity:1, weight:3}).addTo(map));
+        pMarkers.push(L.polyline([points.s, points.e], {color: '#fff', dashArray: '10, 15', opacity: 0.8, weight: 3}).addTo(map));
+        document.getElementById("warBtn").disabled = false;
+        document.getElementById("setupBtn").classList.remove("active");
+        document.getElementById("log").innerText = "Ready for war!"; step = 0;
+    }
+});
+
+function pushEventLog(msg, color) {
+    let logDiv = document.getElementById("eventLog");
+    let entry = document.createElement("div");
+    entry.className = "log-entry";
+    entry.innerHTML = `<strong style="color:${color}">[!]</strong> ${msg}`;
+    logDiv.prepend(entry);
+}
+
+function highlightNumbers(id, color) {
+    let el = document.getElementById(id);
+    el.style.color = color; el.classList.add("boost");
+    setTimeout(() => { el.classList.remove("boost"); el.style.color = "white"; }, 600);
+}
+
+
+function createCurvedTextMarker(bearing, colorA, colorD) {
+    let html = `
+        <div class="curved-text-container" style="transform: rotate(${bearing}deg);">
+            <svg viewBox="0 0 300 300">
+                <defs>
+                    <!-- Båge för anfallaren (Böjd uppåt/framåt) -->
+                    <path id="arcA" d="M 50,150 A 100,100 0 0,1 250,150" />
+                    <!-- Båge för försvararen (Böjd nedåt/motstående) -->
+                    <path id="arcD" d="M 50,165 A 115,115 0 0,0 250,165" />
+                </defs>
+                <text class="svg-text" stroke="${colorA}">
+                    <textPath href="#arcA" startOffset="50%" text-anchor="middle" id="svgTextA">0</textPath>
+                </text>
+                <text class="svg-text" stroke="${colorD}">
+                    <textPath href="#arcD" startOffset="50%" text-anchor="middle" id="svgTextD">0</textPath>
+                </text>
+            </svg>
+        </div>
+    `;
+    return L.divIcon({ className: '', html: html, iconSize: [0, 0], iconAnchor: [0, 0] });
+}
+
+function launchInvasion() {
+    let defName = document.getElementById("enemySelect").value;
+    let aTroops = parseInt(document.getElementById("soldiers").value);
+    document.getElementById("eventLog").innerHTML = "";
+
+    activeWar = {
+        atk: countries[selectedAtk], def: countries[defName],
+        aT: aTroops, dT: Math.floor(aTroops * (0.6 + Math.random() * 0.5)),
+        aMax: aTroops, dMax: 0, 
+        aReinf: 3, dReinf: 4,
+        p: 0, lastRenderP: -1,
+        maxDist: turf.distance([points.s.lng, points.s.lat], [points.e.lng, points.e.lat]),
+
+        bearing: turf.bearing([points.s.lng, points.s.lat], [points.e.lng, points.e.lat])
+    };
+    activeWar.dMax = activeWar.dT;
+
+
+    activeWar.def.layer.setStyle({ opacity: 0, fillOpacity: 0 });
+    
+
+    let icon = createCurvedTextMarker(activeWar.bearing, activeWar.atk.color, activeWar.def.color);
+    combinedTextMarker = L.marker([points.s.lat, points.s.lng], {icon: icon}).addTo(map);
+
+    pMarkers.forEach(m => map.removeLayer(m));
+    document.getElementById("warBtn").disabled = true;
+    document.getElementById("setupBtn").disabled = true;
+
+    pushEventLog(`Invasionen av ${activeWar.def.name} inleds!`, activeWar.atk.color);
+
+    let ticker = setInterval(() => {
+        if(!activeWar) return clearInterval(ticker);
+        let speed = document.getElementById("longWar").checked ? 0.15 : 0.8;
+        
+        let ratio = activeWar.aT / Math.max(1, activeWar.dT);
+        let loss = (5000 + Math.random() * 5000) * speed;
+        
+        activeWar.aT -= loss * (1 / ratio);
+        activeWar.dT -= loss * ratio;
+
+        if(activeWar.dT < activeWar.dMax * 0.3 && activeWar.dReinf > 0 && Math.random() < 0.08) {
+            let b = activeWar.dMax * 0.35; activeWar.dT += b; activeWar.dReinf--;
+            pushEventLog(`${activeWar.def.name} mobilises reserves!`, activeWar.def.color);
+            highlightNumbers("dCount", activeWar.def.color);
+        }
+        if(activeWar.aT < activeWar.aMax * 0.3 && activeWar.aReinf > 0 && Math.random() < 0.06) {
+            let b = activeWar.aMax * 0.3; activeWar.aT += b; activeWar.aReinf--;
+            pushEventLog(`${activeWar.atk.name} deploys armored divisions!`, activeWar.atk.color);
+            highlightNumbers("aCount", activeWar.atk.color);
+        }
+
+        let splitSlowing = activeWar.p > 0.6 ? 0.6 : 1.0;
+        activeWar.p += (ratio > 1.2 ? 0.006 : 0.002) * speed * splitSlowing;
+        activeWar.p = Math.min(1, activeWar.p);
+
+        renderFrame();
+
+        if(activeWar.p >= 1 || activeWar.dT <= 0) { finish(true); clearInterval(ticker); }
+        else if(activeWar.aT <= 0) { finish(false); clearInterval(ticker); }
+    }, 60); 
+}
+
+function renderFrame() {
+    let w = activeWar;
+    let currentRadius = Math.max(0.01, w.maxDist * w.p);
+    
+
+    if (Math.abs(w.p - w.lastRenderP) > 0.008 || w.p === 1) {
+        let circle = turf.circle([points.s.lng, points.s.lat], currentRadius, {steps: 64});
+        try {
+            let occ = turf.intersect(w.def.feature, circle);
+            let rem = turf.difference(w.def.feature, circle);
+            
+            if(occupiedLayer) map.removeLayer(occupiedLayer);
+            if(remainingLayer) map.removeLayer(remainingLayer);
+            if(frontLineLayer) map.removeLayer(frontLineLayer);
+            
+            if(occ) {
+
+                occupiedLayer = L.geoJSON(occ, { 
+                    style: { fillColor: w.atk.color, fillOpacity: 0.65, color: w.atk.color, weight: 1 } 
+                }).addTo(map);
+
+                frontLineLayer = L.geoJSON(occ, {
+                    style: { color: '#ff3300', weight: 4, opacity: 0.8, fillOpacity: 0, className: 'glow-line' }
+                }).addTo(map);
+            }
+            if(rem) {
+                remainingLayer = L.geoJSON(rem, { 
+                    style: { fillColor: w.def.color, fillOpacity: 0.3, color: '#556', weight: 1.5 } 
+                }).addTo(map);
+            }
+        } catch (e) { console.log("Geometri-överlappning ignorerades denna frame."); }
+        w.lastRenderP = w.p;
+    }
+    let mLat = points.s.lat + (points.e.lat - points.s.lat) * w.p;
+    let mLng = points.s.lng + (points.e.lng - points.s.lng) * w.p;
+    combinedTextMarker.setLatLng([mLat, mLng]);
+
+    let strA = Math.max(0, Math.floor(w.aT)).toLocaleString('sv-SE');
+    let strD = Math.max(0, Math.floor(w.dT)).toLocaleString('sv-SE');
+        document.getElementById("aCount").innerText = strA;
+    document.getElementById("dCount").innerText = strD;
+
+    let svgA = document.getElementById("svgTextA");
+    let svgD = document.getElementById("svgTextD");
+    if(svgA) svgA.textContent = strA;
+    if(svgD) svgD.textContent = strD;
+}
+
+function finish(won) {
+    if(occupiedLayer) map.removeLayer(occupiedLayer);
+    if(remainingLayer) map.removeLayer(remainingLayer);
+    if(frontLineLayer) map.removeLayer(frontLineLayer);
+    
+    if(won) {
+        activeWar.def.layer.setStyle({fillColor: activeWar.atk.color, fillOpacity: 0.7, color: '#fff', weight: 2, opacity: 1});
+        activeWar.def.color = activeWar.atk.color; 
+        document.getElementById("log").innerText = "Victory!";
+        document.getElementById("log").style.color = "#0f0";
+        pushEventLog(`The war is over. ${activeWar.atk.name} has won!`, "#0f0");
+    } else {
+        activeWar.def.layer.setStyle({fillColor: activeWar.def.color, fillOpacity: 0.4, color: '#fff', weight: 2, opacity: 1});
+        document.getElementById("log").innerText = "INVASION STOPPED!";
+        document.getElementById("log").style.color = "#f00";
+        pushEventLog(`${activeWar.def.name} stopped the invasion!`, "#f00");
+    }
+    
+    if(combinedTextMarker) map.removeLayer(combinedTextMarker);
+    document.getElementById("setupBtn").disabled = false;
+    document.getElementById("enemySelect").disabled = false;
+    activeWar = null;
+    step = 0;
+}
+</script>
+</body>
+</html>
